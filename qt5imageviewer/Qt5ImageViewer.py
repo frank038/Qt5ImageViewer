@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-# V. 0.5
+# V. 0.5.1
 
 from PyQt5.QtCore import Qt, QMimeDatabase, QEvent
 from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QIcon, QTransform
@@ -9,7 +9,7 @@ from PyQt5.QtWidgets import QWidget, QLabel, QSizePolicy, QScrollArea, QMessageB
     qApp, QFileDialog
 from PIL import Image, ImageQt
 
-dialog_filters = 'Images (*.tga *.png *.jpeg *.jpg *.bmp *.gif *.svg *.dds *.eps *.ico *.tiff *.tif *.webp *.wmf *.jp2 *.pbm *.pgm *.ppm *.xbm *.xpm);;All files (*.*)'
+dialog_filters = 'Images (*.tga *.png *.jpeg *.jpg *.bmp *.gif *.svg *.dds *.eps *.ico *.tiff *.tif *.webp *.wmf *.jp2 *.pbm *.pgm *.ppm *.xbm *.xpm);;All files (*)'
 
 # python list e.g. ["gif", "ppm"] - will be used by the pyqt5 decoders
 exclude_from_pil = []
@@ -101,8 +101,11 @@ class QImageViewer(QMainWindow):
         except Exception as E:
             pass
         #
-        if os.path.basename(fileName).split(".")[1] in exclude_from_pil:
-            ppixmap = None
+        try:
+            if os.path.basename(fileName).split(".")[1] in exclude_from_pil:
+                ppixmap = None
+        except:
+            pass
         #
         if not ppixmap:
             try:
@@ -312,8 +315,11 @@ class QImageViewer(QMainWindow):
             except Exception as E:
                 pass
             # 
-            if os.path.basename(fileName).split(".")[1] in exclude_from_pil:
-                ppixmap = None
+            try:
+                if os.path.basename(fileName).split(".")[1] in exclude_from_pil:
+                    ppixmap = None
+            except:
+                pass
             #
             if not ppixmap:
                 try:
