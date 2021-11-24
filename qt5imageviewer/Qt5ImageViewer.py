@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-# V. 0.6.0
+# V. 0.6.1
 
 from PyQt5.QtCore import Qt, QMimeDatabase, QEvent, QSize
 from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QIcon, QTransform, QMovie
@@ -97,6 +97,10 @@ class QImageViewer(QMainWindow):
     # 
     def on_open(self, fileName):
         ppixmap = None
+        self.is_gif = False
+        if self.ggif:
+            self.ggif.stop()
+            self.ggif = None
         try:
             image = Image.open(fileName)
             ppixmap = ImageQt.toqpixmap(image)

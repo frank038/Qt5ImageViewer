@@ -2,4 +2,8 @@
 
 thisdir=$(dirname "$0")
 cd $thisdir
-./Qt5ImageViewer.py "$1"
+if [[ $# -eq 0 ]]; then
+  ./Qt5ImageViewer.py
+else
+	./Qt5ImageViewer.py "$1"
+fi
