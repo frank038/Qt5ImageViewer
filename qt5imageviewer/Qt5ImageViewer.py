@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-# V. 0.5.1
+# V. 0.5.2
 
 from PyQt5.QtCore import Qt, QMimeDatabase, QEvent
 from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QIcon, QTransform
