@@ -5,7 +5,7 @@ Requires:
 - pyqt5
 - PIL (image magick binding)
 
-This program use PIL to render the image files, but can also use pyqt5 directly, e.g. for the svg images. A filter for bypassing PIL is set at line 15 in the main program, if the case. This program use the file extensions to first identify the file type. More supported extensions can be added at line 12, if the case.
+This program use PIL to render the image files, but can also use pyqt5 directly, e.g. for the svg images. A filter for bypassing PIL is set at line 15 in the main program, if the case. This program use the file extensions to identify the file type with the open file dialog, but also load images without any extensions. More supported extensions can be added at line 12, if the case.
 
 Features:
 - opens images from command line and dialog;
