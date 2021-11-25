@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-# V. 0.6.1
+# V. 0.7.0
 
 from PyQt5.QtCore import Qt, QMimeDatabase, QEvent, QSize
 from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QIcon, QTransform, QMovie
@@ -34,18 +34,23 @@ class QImageViewer(QMainWindow):
     def __init__(self, ipath):
         super().__init__()
         #
-        self.resize(WW, HH)
+        self.WW = WW
+        self.HH = HH
+        self.resize(self.WW, self.HH)
         #
         self.ipath = ipath
         self.curr_dir = None
         if self.ipath:
             self.curr_dir = os.path.dirname(self.ipath)
         self.printer = QPrinter()
+        # actual scaling factor
         self.scaleFactor = 0.0
+        # starting scaling factor
+        self.scaleFactorStart = 0.0
         #
         # a gif can be animated
-        self.is_gif = False
-        self.ggif = None
+        self.is_animated = False
+        self.ianimated = None
         #
         self.imageLabel = QLabel()
         self.imageLabel.setBackgroundRole(QPalette.Base)
@@ -78,6 +83,7 @@ class QImageViewer(QMainWindow):
         #
         self.layout().setContentsMargins(0,0,0,0)
         self.scrollArea.setContentsMargins(0,0,0,0)
+        self.imageLabel.setContentsMargins(0,0,0,0)
         # 
         if self.ipath:
             ret = self.on_open(self.ipath)
@@ -87,7 +93,8 @@ class QImageViewer(QMainWindow):
     
     def open(self):
         options = QFileDialog.Options()
-        fileName, _ = QFileDialog.getOpenFileName(self, 'Open File', os.path.expanduser("~"), dialog_filters, options=options)
+        # fileName, _ = QFileDialog.getOpenFileName(self, 'Open File', os.path.expanduser("~"), dialog_filters, options=options)
+        fileName, _ = QFileDialog.getOpenFileName(self, 'Open File', self.curr_dir, dialog_filters, options=options)
         if fileName:
             self.ipath = fileName
             ret = self.on_open(self.ipath)
@@ -97,10 +104,10 @@ class QImageViewer(QMainWindow):
     # 
     def on_open(self, fileName):
         ppixmap = None
-        self.is_gif = False
-        if self.ggif:
-            self.ggif.stop()
-            self.ggif = None
+        self.is_animated = False
+        if self.ianimated:
+            self.ianimated.stop()
+            self.ianimated = None
         try:
             image = Image.open(fileName)
             ppixmap = ImageQt.toqpixmap(image)
@@ -122,7 +129,7 @@ class QImageViewer(QMainWindow):
                 # 
                 image_type = QMimeDatabase().mimeTypeForFile(fileName, QMimeDatabase.MatchContent).name()
                 if image_type == "image/gif":
-                    self.is_gif = True
+                    self.is_animated = True
                 else:
                     ppixmap = QPixmap.fromImage(image)
             except Exception as E:
@@ -139,11 +146,31 @@ class QImageViewer(QMainWindow):
         #
         self.scaleFactor = 1.0
         #
-        if self.is_gif:
-            self.ggif = QMovie(fileName)
-            self.imageLabel.setMovie(self.ggif)
-            self.imageLabel.resize(WW-2, HH-2-self.menuBar().size().height())
-            self.ggif.start()
+        if self.is_animated:
+            self.ianimated = QMovie(fileName)
+            self.imageLabel.setMovie(self.ianimated)
+            self.ianimated.start()
+            # 
+            ppixmap = self.ianimated.currentPixmap()
+            self.ianimated.stop()
+            #
+            image_width = ppixmap.width()
+            image_height = ppixmap.height()
+            image_depth = ppixmap.depth()
+            if image_width >= image_height:
+                if image_width > self.WW and not image_height > self.HH:
+                    self.scaleFactor = (self.WW-2)/image_width
+                elif image_height > self.HH:
+                    self.scaleFactor = (self.HH-2-self.menuBar().size().height())/image_height
+            else:
+                if image_height > self.HH and not image_width > self.WW:
+                    self.scaleFactor = (self.HH-2-self.menuBar().size().height())/image_height
+                elif image_width > self.WW:
+                    self.scaleFactor = (self.WW-2)/image_width
+            self.imageLabel.resize(self.scaleFactor * ppixmap.size())
+            self.scaleFactorStart = self.scaleFactor
+            #
+            self.ianimated.start()
         else:
             self.imageLabel.setPixmap(ppixmap)
             #
@@ -151,13 +178,18 @@ class QImageViewer(QMainWindow):
             image_height = ppixmap.height()
             image_depth = ppixmap.depth()
             if image_width >= image_height:
-                if image_width > WW:
-                    self.scaleFactor = (WW-2)/image_width
+                if image_width > self.WW and not image_height > self.HH:
+                    self.scaleFactor = (self.WW-2)/image_width
+                elif image_height > self.HH:
+                    self.scaleFactor = (self.HH-2-self.menuBar().size().height())/image_height
             else:
-                if image_height > HH:
-                    self.scaleFactor = (HH-2-self.menuBar().size().height())/image_height
+                if image_height > self.HH and not image_width > self.WW:
+                    self.scaleFactor = (self.HH-2-self.menuBar().size().height())/image_height
+                elif image_width > self.WW:
+                    self.scaleFactor = (self.WW-2)/image_width
             # 
-            self.imageLabel.resize(self.scaleFactor * self.imageLabel.pixmap().size())
+            self.imageLabel.resize(self.scaleFactor * ppixmap.size())
+            self.scaleFactorStart = self.scaleFactor
         #
         self.imageLabel.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
         #
@@ -165,10 +197,7 @@ class QImageViewer(QMainWindow):
         self.scrollArea.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
         # 
         self.printAct.setEnabled(True)
-        if not self.is_gif:
-            self.fitToWindowAct.setEnabled(True)
-        else:
-            self.fitToWindowAct.setEnabled(False)
+        #
         self.updateActions()
         self.infoAct.setEnabled(True)
         # 
@@ -188,18 +217,18 @@ class QImageViewer(QMainWindow):
     
     
     def info_(self):
-        if self.is_gif:
+        if self.is_animated:
             pw = ""
             ph = ""
             pd = ""
             try:
-                ppixmap = self.ggif.currentPixmap()
+                ppixmap = self.ianimated.currentPixmap()
                 pw = ppixmap.width()
                 ph = ppixmap.height()
                 pd = ppixmap.depth()
             except:
-                pw = self.ggif.frameRect().width()
-                ph = self.ggif.frameRect().height()
+                pw = self.ianimated.frameRect().width()
+                ph = self.ianimated.frameRect().height()
                 pd = "Unknown"
             imime = QMimeDatabase().mimeTypeForFile(self.ipath, QMimeDatabase.MatchDefault)
             imime_name = imime.name()
@@ -217,43 +246,15 @@ class QImageViewer(QMainWindow):
     
     
     def zoomIn(self):
-        if self.is_gif:
-            return
         self.scaleImage(1.25)
     
     
     def zoomOut(self):
-        if self.is_gif:
-            return
         self.scaleImage(0.8)
     
     
     def normalSize(self):
-        if self.is_gif:
-            return
-        self.imageLabel.adjustSize()
-        self.scaleFactor = 1.0
-        #
-        self.setWindowTitle("Image Viewer - {} - x{}".format(os.path.basename(self.ipath), round(self.scaleFactor, 2)))
-    
-    
-    def fitToWindow(self):
-        if self.is_gif:
-            return
-        ppixmap = self.imageLabel.pixmap()
-        image_width = ppixmap.width()
-        image_height = ppixmap.height()
-        image_depth = ppixmap.depth()
-        if image_width >= image_height:
-            if image_width > WW:
-                self.scaleFactor = (WW-2)/image_width
-        else:
-            if image_height > HH:
-                self.scaleFactor = (HH-2-self.menuBar().size().height())/image_height
-        # 
-        self.imageLabel.resize(self.scaleFactor * ppixmap.size())
-        #
-        self.setWindowTitle("Image Viewer - {} - x{}".format(os.path.basename(self.ipath), round(self.scaleFactor, 2)))
+        self.scaleImage(self.scaleFactorStart/self.scaleFactor)
     
     
     def createActions(self):
@@ -264,8 +265,7 @@ class QImageViewer(QMainWindow):
         self.zoomInAct = QAction("Zoom &In (25%)", self, shortcut="Ctrl++", enabled=False, triggered=self.zoomIn)
         self.zoomOutAct = QAction("Zoom &Out (25%)", self, shortcut="Ctrl+-", enabled=False, triggered=self.zoomOut)
         self.normalSizeAct = QAction("&Normal Size", self, shortcut="Ctrl+S", enabled=False, triggered=self.normalSize)
-        self.fitToWindowAct = QAction("&Fit to Window", self, enabled=False, checkable=False, shortcut="Ctrl+F",
-                                      triggered=self.fitToWindow)
+    
 
     def createMenus(self):
         self.fileMenu = QMenu("&File", self)
@@ -280,29 +280,24 @@ class QImageViewer(QMainWindow):
         self.viewMenu.addAction(self.zoomInAct)
         self.viewMenu.addAction(self.zoomOutAct)
         self.viewMenu.addAction(self.normalSizeAct)
-        self.viewMenu.addSeparator()
-        self.viewMenu.addAction(self.fitToWindowAct)
         #
         self.menuBar().addMenu(self.fileMenu)
         self.menuBar().addMenu(self.viewMenu)
     
 
     def updateActions(self):
-        if self.is_gif:
-            self.zoomInAct.setEnabled(False)
-            self.zoomOutAct.setEnabled(False)
-            self.normalSizeAct.setEnabled(False)
-            return
-        self.zoomInAct.setEnabled(not self.fitToWindowAct.isChecked())
-        self.zoomOutAct.setEnabled(not self.fitToWindowAct.isChecked())
-        self.normalSizeAct.setEnabled(not self.fitToWindowAct.isChecked())
+        self.zoomInAct.setEnabled(True)
+        self.zoomOutAct.setEnabled(True)
+        self.normalSizeAct.setEnabled(True)
 
 
     def scaleImage(self, factor):
-        if self.is_gif:
-            return
         self.scaleFactor *= factor
-        self.imageLabel.resize(self.scaleFactor * self.imageLabel.pixmap().size())
+        if self.is_animated:
+            ppixmap = self.ianimated.currentPixmap()
+        else:
+            ppixmap = self.imageLabel.pixmap()
+        self.imageLabel.resize(self.scaleFactor * ppixmap.size())
         #
         self.adjustScrollBar(self.scrollArea.horizontalScrollBar(), factor)
         self.adjustScrollBar(self.scrollArea.verticalScrollBar(), factor)
@@ -335,11 +330,12 @@ class QImageViewer(QMainWindow):
         qApp.quit()
     
     
+    # load the next or previous image in the folder
     def keyNav(self, incr_idx):
-        if self.ggif:
-            self.ggif.stop()
-            self.ggif = None
-            self.is_gif = False
+        if self.ianimated:
+            self.ianimated.stop()
+            self.ianimated = None
+            self.is_animated = False
         #
         len_folder = len(self.directory_content)
         new_idx = self.directory_current_idx + incr_idx
@@ -350,7 +346,7 @@ class QImageViewer(QMainWindow):
             ttype = "i"
         self.on_open2(new_idx, ttype)
     
-    #
+    # self.keyNav
     def on_open2(self, new_idx, ttype):
         len_folder = len(self.directory_content)
         if ttype == "i":
@@ -388,7 +384,7 @@ class QImageViewer(QMainWindow):
                     else:
                         image_type = QMimeDatabase().mimeTypeForFile(fileName, QMimeDatabase.MatchContent).name()
                         if image_type == "image/gif":
-                            self.is_gif = True
+                            self.is_animated = True
                             ppixmap = True
                         else:
                             ppixmap = QPixmap.fromImage(image)
@@ -405,25 +401,51 @@ class QImageViewer(QMainWindow):
         #
         self.scaleFactor = 1.0
         #
-        if self.is_gif:
-            self.ggif = QMovie(fileName)
-            self.imageLabel.setMovie(self.ggif)
-            self.imageLabel.resize(WW-2, HH-2-self.menuBar().size().height())
-            self.ggif.start()
-        else:
+        if self.is_animated:
+            self.ianimated = QMovie(fileName)
+            self.imageLabel.setMovie(self.ianimated)
+            self.ianimated.start()
+            # 
+            ppixmap = self.ianimated.currentPixmap()
+            self.ianimated.stop()
+            #
             image_width = ppixmap.width()
             image_height = ppixmap.height()
             image_depth = ppixmap.depth()
             if image_width >= image_height:
-                if image_width > WW:
-                    self.scaleFactor = (WW-2)/image_width
+                if image_width > self.WW and not image_height > self.HH:
+                    self.scaleFactor = (self.WW-2)/image_width
+                elif image_height > self.HH:
+                    self.scaleFactor = (self.HH-2-self.menuBar().size().height())/image_height
             else:
-                if image_height > HH:
-                    self.scaleFactor = (HH-2-self.menuBar().size().height())/image_height
+                if image_height > self.HH and not image_width > self.WW:
+                    self.scaleFactor = (self.HH-2-self.menuBar().size().height())/image_height
+                elif image_width > self.WW:
+                    self.scaleFactor = (self.WW-2)/image_width
+            self.imageLabel.resize(self.scaleFactor * ppixmap.size())
+            self.scaleFactorStart = self.scaleFactor
+            #
+            self.ianimated.start()
+        else:
+            image_width = ppixmap.width()
+            image_height = ppixmap.height()
+            image_depth = ppixmap.depth()
+            #
+            if image_width >= image_height:
+                if image_width > self.WW and not image_height > self.HH:
+                    self.scaleFactor = (self.WW-2)/image_width
+                elif image_height > self.HH:
+                    self.scaleFactor = (self.HH-2-self.menuBar().size().height())/image_height
+            else:
+                if image_height > self.HH and not image_width > self.WW:
+                    self.scaleFactor = (self.HH-2-self.menuBar().size().height())/image_height
+                elif image_width > self.WW:
+                    self.scaleFactor = (self.WW-2)/image_width
             # 
             self.imageLabel.setPixmap(ppixmap)
             #
             self.imageLabel.resize(self.scaleFactor * self.imageLabel.pixmap().size())
+            self.scaleFactorStart = self.scaleFactor
         # 
         self.imageLabel.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
         #
@@ -431,10 +453,7 @@ class QImageViewer(QMainWindow):
         self.scrollArea.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
         # 
         self.printAct.setEnabled(True)
-        if not self.is_gif:
-            self.fitToWindowAct.setEnabled(True)
-        else:
-            self.fitToWindowAct.setEnabled(False)
+        # 
         self.updateActions()
         self.infoAct.setEnabled(True)
         #
@@ -443,8 +462,9 @@ class QImageViewer(QMainWindow):
     
     # with up or down keys
     def imageRotate(self, ttype):
-        if self.is_gif:
+        if self.is_animated:
             return
+        # 
         ppixmap = self.imageLabel.pixmap()
         if ttype == -1:
             image_rotation = 90
