@@ -1,6 +1,6 @@
 #!/usr/bin/python3
 # -*- coding: utf-8 -*-
-# V. 0.7.0
+# V. 0.7.5
 
 from PyQt5.QtCore import Qt, QMimeDatabase, QEvent, QSize
 from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QIcon, QTransform, QMovie
@@ -89,6 +89,11 @@ class QImageViewer(QMainWindow):
             ret = self.on_open(self.ipath)
             if ret == -1:
                 sys.exit(qApp.closeAllWindows())
+        
+    
+    def resizeEvent(self, e):
+        self.WW = self.size().width()
+        self.HH = self.size().height()
         
     
     def open(self):
