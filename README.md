@@ -17,3 +17,6 @@ Features:
 - next and previous images (folder navigation), by using the LEFT and RIGHT arrow keys;
 - basic info about the image: name, size, colour depth, mimetype.
 
+Screenshot, without any window decorations:
+
+![My image](https://github.com/frank038/Qt5ImageViewer/blob/main/screenshot1.png)
