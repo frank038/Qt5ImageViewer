@@ -1,6 +1,5 @@
 #!/usr/bin/python3
-# -*- coding: utf-8 -*-
-# V. 0.7.5
+# V. 0.7.6
 
 from PyQt5.QtCore import Qt, QMimeDatabase, QEvent, QSize
 from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QIcon, QTransform, QMovie
@@ -11,8 +10,10 @@ from PIL import Image, ImageQt
 
 dialog_filters = 'Images (*.tga *.png *.jpeg *.jpg *.bmp *.gif *.svg *.dds *.eps *.ico *.tiff *.tif *.webp *.wmf *.jp2 *.pbm *.pgm *.ppm *.xbm *.xpm);;All files (*)'
 
-# python list e.g. ["gif", "ppm"] - will be used by the pyqt5 decoders
-exclude_from_pil = ["gif"]
+# python list e.g. ["image/gif", "image/ppm"] - will be used by the pyqt5 decoders
+exclude_from_pil = ["image/gif"]
+# could be animated
+animated_format = ["image/gif"]
 
 WW = 800
 HH = 600
@@ -119,8 +120,10 @@ class QImageViewer(QMainWindow):
         except Exception as E:
             pass
         #
+        image_type = ""
         try:
-            if os.path.basename(fileName).split(".")[1] in exclude_from_pil:
+            image_type = QMimeDatabase().mimeTypeForFile(fileName, QMimeDatabase.MatchDefault).name()
+            if image_type in exclude_from_pil:
                 ppixmap = None
         except:
             pass
@@ -132,8 +135,9 @@ class QImageViewer(QMainWindow):
                     QMessageBox.information(self, "Image Viewer", "Cannot load %s" % fileName)
                     return -1
                 # 
-                image_type = QMimeDatabase().mimeTypeForFile(fileName, QMimeDatabase.MatchContent).name()
-                if image_type == "image/gif":
+                # image_type = QMimeDatabase().mimeTypeForFile(fileName, QMimeDatabase.MatchContent).name()
+                # if image_type == "image/gif":
+                if image_type in animated_format:
                     self.is_animated = True
                 else:
                     ppixmap = QPixmap.fromImage(image)
@@ -207,8 +211,15 @@ class QImageViewer(QMainWindow):
         self.infoAct.setEnabled(True)
         # 
         self.setWindowTitle("Image Viewer - {} - x{}".format(os.path.basename(self.ipath), round(self.scaleFactor, 2)))
-        
+        #
+        if self.is_animated:
+            self.rotateLeftAct.setEnabled(False)
+            self.rotateRightAct.setEnabled(False)
+        else:
+            self.rotateLeftAct.setEnabled(True)
+            self.rotateRightAct.setEnabled(True)
     
+    #
     def print_(self):
         dialog = QPrintDialog(self.printer, self)
         if dialog.exec_():
@@ -263,15 +274,22 @@ class QImageViewer(QMainWindow):
     
     
     def createActions(self):
-        self.openAct = QAction("&Open...", self, shortcut="Ctrl+O", triggered=self.open)
-        self.printAct = QAction("&Print...", self, shortcut="Ctrl+P", enabled=False, triggered=self.print_)
-        self.infoAct = QAction("&Info", self, shortcut="Ctrl+I", enabled=False, triggered=self.info_)
-        self.exitAct = QAction("E&xit", self, shortcut="Ctrl+Q", triggered=self.close)
+        self.openAct = QAction("&Open...", self, shortcut="Ctrl+o", triggered=self.open)
+        self.printAct = QAction("&Print...", self, shortcut="Ctrl+p", enabled=False, triggered=self.print_)
+        self.infoAct = QAction("&Info", self, shortcut="Ctrl+i", enabled=False, triggered=self.info_)
+        self.exitAct = QAction("E&xit", self, shortcut="Ctrl+q", triggered=self.close)
+        #
         self.zoomInAct = QAction("Zoom &In (25%)", self, shortcut="Ctrl++", enabled=False, triggered=self.zoomIn)
         self.zoomOutAct = QAction("Zoom &Out (25%)", self, shortcut="Ctrl+-", enabled=False, triggered=self.zoomOut)
-        self.normalSizeAct = QAction("&Normal Size", self, shortcut="Ctrl+S", enabled=False, triggered=self.normalSize)
+        self.normalSizeAct = QAction("&Normal Size", self, shortcut="Ctrl+s", enabled=False, triggered=self.normalSize)
+        self.rotateLeftAct = QAction("Rotate &Left", self, shortcut="Ctrl+e", enabled=False, triggered=self.rotateLeft)
+        self.rotateRightAct = QAction("Rotate &Right", self, shortcut="Ctrl+r", enabled=False, triggered=self.rotateRight)
+        #
+        self.tool1Act = QAction("Tool &1", self, shortcut="Ctrl+1", enabled=True, triggered=self.tool1)
+        self.tool2Act = QAction("Tool &2", self, shortcut="Ctrl+2", enabled=True, triggered=self.tool2)
+        self.tool3Act = QAction("Tool &3", self, shortcut="Ctrl+3", enabled=True, triggered=self.tool3)
     
-
+    
     def createMenus(self):
         self.fileMenu = QMenu("&File", self)
         self.fileMenu.addAction(self.openAct)
@@ -285,15 +303,34 @@ class QImageViewer(QMainWindow):
         self.viewMenu.addAction(self.zoomInAct)
         self.viewMenu.addAction(self.zoomOutAct)
         self.viewMenu.addAction(self.normalSizeAct)
+        self.viewMenu.addSeparator()
+        self.viewMenu.addAction(self.rotateLeftAct)
+        self.viewMenu.addAction(self.rotateRightAct)
+        #
+        self.toolMenu = QMenu("&Tool", self)
+        self.toolMenu.addAction(self.tool1Act)
+        self.toolMenu.addAction(self.tool2Act)
+        self.toolMenu.addAction(self.tool3Act)
         #
         self.menuBar().addMenu(self.fileMenu)
         self.menuBar().addMenu(self.viewMenu)
+        self.menuBar().addMenu(self.toolMenu)
     
+    def tool1(self):
+        os.system("./tool1.sh '{}'".format(self.ipath))
+    
+    def tool2(self):
+        os.system("./tool2.sh '{}'".format(self.ipath))
+    
+    def tool3(self):
+        os.system("./tool3.sh '{}'".format(self.ipath))
 
     def updateActions(self):
         self.zoomInAct.setEnabled(True)
         self.zoomOutAct.setEnabled(True)
         self.normalSizeAct.setEnabled(True)
+        self.rotateLeftAct.setEnabled(True)
+        self.rotateRightAct.setEnabled(True)
 
 
     def scaleImage(self, factor):
@@ -313,6 +350,7 @@ class QImageViewer(QMainWindow):
         self.setWindowTitle("Image Viewer - {} - x{}".format(os.path.basename(self.ipath), round(self.scaleFactor, 2)))
     
     
+    #
     def adjustScrollBar(self, scrollBar, factor):
         scrollBar.setValue(int(factor * scrollBar.value()
                                + ((factor - 1) * scrollBar.pageStep() / 2)))
@@ -375,8 +413,11 @@ class QImageViewer(QMainWindow):
             except Exception as E:
                 pass
             # 
+            image_type = ""
             try:
-                if os.path.basename(fileName).split(".")[1] in exclude_from_pil:
+                # if os.path.basename(fileName).split(".")[1] in exclude_from_pil:
+                image_type = QMimeDatabase().mimeTypeForFile(fileName, QMimeDatabase.MatchContent).name()
+                if image_type in exclude_from_pil:
                     ppixmap = None
             except:
                 pass
@@ -387,8 +428,7 @@ class QImageViewer(QMainWindow):
                     if image.isNull():
                         new_idx += incr_idx
                     else:
-                        image_type = QMimeDatabase().mimeTypeForFile(fileName, QMimeDatabase.MatchContent).name()
-                        if image_type == "image/gif":
+                        if image_type in animated_format:
                             self.is_animated = True
                             ppixmap = True
                         else:
@@ -463,7 +503,21 @@ class QImageViewer(QMainWindow):
         self.infoAct.setEnabled(True)
         #
         self.setWindowTitle("Image Viewer - {} - x{}".format(os.path.basename(self.ipath), round(self.scaleFactor, 2)))
+        #
+        if self.is_animated:
+            self.rotateLeftAct.setEnabled(False)
+            self.rotateRightAct.setEnabled(False)
+        else:
+            self.rotateLeftAct.setEnabled(True)
+            self.rotateRightAct.setEnabled(True)
     
+    #
+    def rotateLeft(self):
+        self.imageRotate(1)
+    
+    #
+    def rotateRight(self):
+        self.imageRotate(-1)
     
     # with up or down keys
     def imageRotate(self, ttype):
