@@ -1,5 +1,5 @@
 # Qt5ImageViewer
-A simple image viewer using PIL with basic features. V. 0.7.5
+A simple image viewer using PIL with basic features. V. 0.7.6
 
 Requires:
 - pyqt5
@@ -13,9 +13,10 @@ Features:
 - zoom;
 - normal size;
 - image mouse dragging;
-- rotation, by using the UP and DOWN arrow keys;
+- rotation, by using the UP and DOWN arrow keys, or the menu;
 - next and previous images (folder navigation), by using the LEFT and RIGHT arrow keys;
-- basic info about the image: name, size, colour depth, mimetype.
+- basic info about the image: name, size, colour depth, mimetype;
+- custom actions support for external operations by using the bash script.
 
 A screenshot:
 
