@@ -1,5 +1,5 @@
 # Qt5ImageViewer
-A simple image viewer using PIL with basic features. V. 0.7.6
+A simple image viewer using PIL with basic features. V. 0.7.7
 
 Requires:
 - pyqt5
