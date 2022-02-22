@@ -1,5 +1,5 @@
 #!/usr/bin/python3
-# V. 0.7.6
+# V. 0.7.7
 
 from PyQt5.QtCore import Qt, QMimeDatabase, QEvent, QSize
 from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QIcon, QTransform, QMovie
@@ -7,6 +7,7 @@ from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from PyQt5.QtWidgets import QWidget, QLabel, QSizePolicy, QScrollArea, QMessageBox, QMainWindow, QMenu, QAction, \
     qApp, QFileDialog
 from PIL import Image, ImageQt
+import subprocess
 
 dialog_filters = 'Images (*.tga *.png *.jpeg *.jpg *.bmp *.gif *.svg *.dds *.eps *.ico *.tiff *.tif *.webp *.wmf *.jp2 *.pbm *.pgm *.ppm *.xbm *.xpm);;All files (*)'
 
@@ -317,13 +318,13 @@ class QImageViewer(QMainWindow):
         self.menuBar().addMenu(self.toolMenu)
     
     def tool1(self):
-        os.system("./tool1.sh '{}'".format(self.ipath))
+        subprocess.Popen(["./tool1.sh", self.ipath])
     
     def tool2(self):
-        os.system("./tool2.sh '{}'".format(self.ipath))
+        subprocess.Popen(["./tool2.sh", self.ipath])
     
     def tool3(self):
-        os.system("./tool3.sh '{}'".format(self.ipath))
+        subprocess.Popen(["./tool3.sh", self.ipath])
 
     def updateActions(self):
         self.zoomInAct.setEnabled(True)
