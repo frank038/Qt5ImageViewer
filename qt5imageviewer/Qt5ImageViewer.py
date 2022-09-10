@@ -1,20 +1,35 @@
 #!/usr/bin/python3
-# V. 0.7.7
+# V. 0.8
 
 from PyQt5.QtCore import Qt, QMimeDatabase, QEvent, QSize
-from PyQt5.QtGui import QImage, QPixmap, QPalette, QPainter, QIcon, QTransform, QMovie
+from PyQt5.QtGui import QImage, QImageReader, QPixmap, QPalette, QPainter, QIcon, QTransform, QMovie
 from PyQt5.QtPrintSupport import QPrintDialog, QPrinter
 from PyQt5.QtWidgets import QWidget, QLabel, QSizePolicy, QScrollArea, QMessageBox, QMainWindow, QMenu, QAction, \
     qApp, QFileDialog
-from PIL import Image, ImageQt
 import subprocess
+from cfg_imageviewer import *
+skip_pil = 0
+if with_pil:
+    from PIL import Image, ImageQt
+else:
+    skip_pil = 1
 
-dialog_filters = 'Images (*.tga *.png *.jpeg *.jpg *.bmp *.gif *.svg *.dds *.eps *.ico *.tiff *.tif *.webp *.wmf *.jp2 *.pbm *.pgm *.ppm *.xbm *.xpm);;All files (*)'
+#######
+supportedFormats = QImageReader.supportedImageFormats()
+fformats_tmp = ""
+for fft in supportedFormats:
+    fformats_tmp += "*."+fft.data().decode()+" "
 
-# python list e.g. ["image/gif", "image/ppm"] - will be used by the pyqt5 decoders
-exclude_from_pil = ["image/gif"]
-# could be animated
-animated_format = ["image/gif"]
+if with_pil:
+    for eel in with_pil:
+        fft = eel.split("/")[1]
+        fformats_tmp += "*."+fft+" "
+
+fformats = fformats_tmp[0:-1]
+
+# dialog_filters = 'Images (*.tga *.png *.jpeg *.jpg *.bmp *.gif *.svg *.dds *.eps *.ico *.tiff *.tif *.webp *.wmf *.jp2 *.pbm *.pgm *.ppm *.xbm *.xpm);;All files (*)'
+dialog_filters = 'Images ({})'.format(fformats)
+#######
 
 WW = 800
 HH = 600
@@ -49,7 +64,10 @@ class QImageViewer(QMainWindow):
         self.scaleFactor = 0.0
         # starting scaling factor
         self.scaleFactorStart = 0.0
+        # for key navigation
+        self.idx_incr = 0
         #
+        self.is_key_nav = 0
         # a gif can be animated
         self.is_animated = False
         self.ianimated = None
@@ -92,17 +110,16 @@ class QImageViewer(QMainWindow):
             if ret == -1:
                 sys.exit(qApp.closeAllWindows())
         
-    
     def resizeEvent(self, e):
         self.WW = self.size().width()
         self.HH = self.size().height()
         
-    
     def open(self):
         options = QFileDialog.Options()
         # fileName, _ = QFileDialog.getOpenFileName(self, 'Open File', os.path.expanduser("~"), dialog_filters, options=options)
         fileName, _ = QFileDialog.getOpenFileName(self, 'Open File', self.curr_dir, dialog_filters, options=options)
         if fileName:
+            self.is_key_nav = 0
             self.ipath = fileName
             ret = self.on_open(self.ipath)
             if ret == -1:
@@ -115,36 +132,33 @@ class QImageViewer(QMainWindow):
         if self.ianimated:
             self.ianimated.stop()
             self.ianimated = None
-        try:
-            image = Image.open(fileName)
-            ppixmap = ImageQt.toqpixmap(image)
-        except Exception as E:
-            pass
         #
         image_type = ""
         try:
             image_type = QMimeDatabase().mimeTypeForFile(fileName, QMimeDatabase.MatchDefault).name()
-            if image_type in exclude_from_pil:
-                ppixmap = None
-        except:
-            pass
-        #
-        if not ppixmap:
-            try:
+            if image_type in img_skipped:
+                if not self.is_key_nav:
+                    QMessageBox.information(self, "Image Viewer", "Cannot load {}.\nSkipped by user.".format(fileName))
+                return -2
+            elif (skip_pil == 0) and (image_type in with_pil):
+                image = Image.open(fileName)
+                ppixmap = ImageQt.toqpixmap(image)
+                if not ppixmap:
+                    QMessageBox.information(self, "Image Viewer", "Cannot load {} with PIL.".format(fileName))
+                    return -1
+            else:
                 image = QImage(fileName)
                 if image.isNull():
-                    QMessageBox.information(self, "Image Viewer", "Cannot load %s" % fileName)
-                    return -1
-                # 
-                # image_type = QMimeDatabase().mimeTypeForFile(fileName, QMimeDatabase.MatchContent).name()
-                # if image_type == "image/gif":
+                    if not self.is_key_nav:
+                        QMessageBox.information(self, "Image Viewer", "Cannot load {}.".format(fileName))
+                    return -2
                 if image_type in animated_format:
                     self.is_animated = True
                 else:
                     ppixmap = QPixmap.fromImage(image)
-            except Exception as E:
-                QMessageBox.information(self, "Image Viewer", "Error %s." % str(E))
-                return -1
+        except Exception as E:
+            QMessageBox.information(self, "Image Viewer", "Error {}.".format(str(E)))
+            return -1
         # 
         self.ipath = fileName
         # set the working dir
@@ -232,7 +246,6 @@ class QImageViewer(QMainWindow):
             painter.setWindow(self.imageLabel.pixmap().rect())
             painter.drawPixmap(0, 0, self.imageLabel.pixmap())
     
-    
     def info_(self):
         if self.is_animated:
             pw = ""
@@ -261,18 +274,14 @@ class QImageViewer(QMainWindow):
             imime_name = imime.name()
             QMessageBox.information(self, "Image Info", "Name: {}\nWidth: {}\nHeight: {}\nDepth: {}\nType: {}".format(os.path.basename(self.ipath), pw, ph, pd, imime_name))
     
-    
     def zoomIn(self):
         self.scaleImage(1.25)
-    
     
     def zoomOut(self):
         self.scaleImage(0.8)
     
-    
     def normalSize(self):
         self.scaleImage(self.scaleFactorStart/self.scaleFactor)
-    
     
     def createActions(self):
         self.openAct = QAction("&Open...", self, shortcut="Ctrl+o", triggered=self.open)
@@ -289,7 +298,6 @@ class QImageViewer(QMainWindow):
         self.tool1Act = QAction("Tool &1", self, shortcut="Ctrl+1", enabled=True, triggered=self.tool1)
         self.tool2Act = QAction("Tool &2", self, shortcut="Ctrl+2", enabled=True, triggered=self.tool2)
         self.tool3Act = QAction("Tool &3", self, shortcut="Ctrl+3", enabled=True, triggered=self.tool3)
-    
     
     def createMenus(self):
         self.fileMenu = QMenu("&File", self)
@@ -332,8 +340,7 @@ class QImageViewer(QMainWindow):
         self.normalSizeAct.setEnabled(True)
         self.rotateLeftAct.setEnabled(True)
         self.rotateRightAct.setEnabled(True)
-
-
+    
     def scaleImage(self, factor):
         self.scaleFactor *= factor
         if self.is_animated:
@@ -373,9 +380,9 @@ class QImageViewer(QMainWindow):
                 pass
         qApp.quit()
     
-    
     # load the next or previous image in the folder
     def keyNav(self, incr_idx):
+        self.is_key_nav = 1
         if self.ianimated:
             self.ianimated.stop()
             self.ianimated = None
@@ -394,123 +401,30 @@ class QImageViewer(QMainWindow):
     def on_open2(self, new_idx, ttype):
         len_folder = len(self.directory_content)
         if ttype == "i":
+            self.idx_incr += 1
             incr_idx = 1
         elif ttype == "d":
+            self.idx_incr -= 1
             incr_idx = -1
-        ppixmap = None
-        while not ppixmap:
-            if new_idx > len_folder - 1:
-                new_idx = 0
-            elif new_idx < 0:
-                new_idx = len_folder - 1
-            #
-            nitem = self.directory_content[new_idx]
-            # fileName = None
-            fileName = os.path.join(self.curr_dir, nitem)
-            #
-            try:
-                image = Image.open(fileName)
-                ppixmap = ImageQt.toqpixmap(image)
-            except Exception as E:
-                pass
-            # 
-            image_type = ""
-            try:
-                # if os.path.basename(fileName).split(".")[1] in exclude_from_pil:
-                image_type = QMimeDatabase().mimeTypeForFile(fileName, QMimeDatabase.MatchContent).name()
-                if image_type in exclude_from_pil:
-                    ppixmap = None
-            except:
-                pass
-            #
-            if not ppixmap:
-                try:
-                    image = QImage(fileName)
-                    if image.isNull():
-                        new_idx += incr_idx
-                    else:
-                        if image_type in animated_format:
-                            self.is_animated = True
-                            ppixmap = True
-                        else:
-                            ppixmap = QPixmap.fromImage(image)
-                except Exception as E:
-                    pass
         #
-        self.ipath = fileName
-        # set the new working dir
-        if os.path.dirname(self.ipath) != self.curr_dir:
-            self.curr_dir = os.path.dirname(self.ipath)
-            self.directory_content = os.listdir(self.curr_dir)
-        # set the picture index in the list
-        self.directory_current_idx = new_idx
+        if new_idx > len_folder - 1:
+            new_idx = 0
+            self.idx_incr = 0
+        elif new_idx < 0:
+            new_idx = len_folder - 1
+            self.idx_incr = 0
         #
-        self.scaleFactor = 1.0
-        #
-        if self.is_animated:
-            self.ianimated = QMovie(fileName)
-            self.imageLabel.setMovie(self.ianimated)
-            self.ianimated.start()
-            # 
-            ppixmap = self.ianimated.currentPixmap()
-            self.ianimated.stop()
-            #
-            image_width = ppixmap.width()
-            image_height = ppixmap.height()
-            image_depth = ppixmap.depth()
-            if image_width >= image_height:
-                if image_width > self.WW and not image_height > self.HH:
-                    self.scaleFactor = (self.WW-2)/image_width
-                elif image_height > self.HH:
-                    self.scaleFactor = (self.HH-2-self.menuBar().size().height())/image_height
-            else:
-                if image_height > self.HH and not image_width > self.WW:
-                    self.scaleFactor = (self.HH-2-self.menuBar().size().height())/image_height
-                elif image_width > self.WW:
-                    self.scaleFactor = (self.WW-2)/image_width
-            self.imageLabel.resize(self.scaleFactor * ppixmap.size())
-            self.scaleFactorStart = self.scaleFactor
-            #
-            self.ianimated.start()
-        else:
-            image_width = ppixmap.width()
-            image_height = ppixmap.height()
-            image_depth = ppixmap.depth()
-            #
-            if image_width >= image_height:
-                if image_width > self.WW and not image_height > self.HH:
-                    self.scaleFactor = (self.WW-2)/image_width
-                elif image_height > self.HH:
-                    self.scaleFactor = (self.HH-2-self.menuBar().size().height())/image_height
-            else:
-                if image_height > self.HH and not image_width > self.WW:
-                    self.scaleFactor = (self.HH-2-self.menuBar().size().height())/image_height
-                elif image_width > self.WW:
-                    self.scaleFactor = (self.WW-2)/image_width
-            # 
-            self.imageLabel.setPixmap(ppixmap)
-            #
-            self.imageLabel.resize(self.scaleFactor * self.imageLabel.pixmap().size())
-            self.scaleFactorStart = self.scaleFactor
-        # 
-        self.imageLabel.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-        #
-        self.scrollArea.setVisible(True)
-        self.scrollArea.setAlignment(Qt.AlignHCenter | Qt.AlignVCenter)
-        # 
-        self.printAct.setEnabled(True)
-        # 
-        self.updateActions()
-        self.infoAct.setEnabled(True)
-        #
-        self.setWindowTitle("Image Viewer - {} - x{}".format(os.path.basename(self.ipath), round(self.scaleFactor, 2)))
-        #
-        if self.is_animated:
-            self.rotateLeftAct.setEnabled(False)
-            self.rotateRightAct.setEnabled(False)
-        else:
-            self.rotateLeftAct.setEnabled(True)
-            self.rotateRightAct.setEnabled(True)
+        nitem = self.directory_content[new_idx]
+        # fileName = None
+        fileName = os.path.join(self.curr_dir, nitem)
+        # def on_open(self, fileName):
+        ret = self.on_open(fileName)
+        # error in reading a file
+        if ret == -2:
+            if ttype == "i":
+                self.on_open2(new_idx+1, ttype)
+            elif ttype == "d":
+                self.on_open2(new_idx-1, ttype)
     
     #
     def rotateLeft(self):
