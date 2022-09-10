@@ -1,11 +1,13 @@
 # Qt5ImageViewer
-A simple image viewer using PIL with basic features. V. 0.7.7
+A simple image viewer using PIL with basic features. V. 0.8
 
 Requires:
 - pyqt5
-- PIL (image magick binding)
+- PIL (image magick binding): optional, to add unsupported image formats by Qt5.
 
-This program use PIL to render the image files, but can also use pyqt5 directly, e.g. for the svg images. A filter for bypassing PIL is set at line 15 in the main program, if the case. This program uses the file extensions to identify the file type with the open file dialog, but also loads images without any extensions. More supported extensions can be added at line 12, if the case.
+Configuration in the config file.
+
+This program can use PIL, as option, to render the image files not supported by pyqt5 directly. This program uses the file extensions to identify the file type with the open file dialog, but also loads images without any extensions.
 
 Features:
 - opens images from command line and dialog;
